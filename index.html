@@ -349,7 +349,7 @@
                         
                         // Handle overnight shifts
                         // If finish time is earlier than start time, it's an overnight shift
-                        if (diffMins < 0) {
+                        if (diffMins <= 0) {
                             diffMins += 1440; // Add 24 hours (1440 minutes)
                         }
 
@@ -528,12 +528,25 @@
             doc.text("NOTES & ALLOWANCES:", 18, y + 5);
             
             doc.setFont("Helvetica", "normal");
-            let notesList = [];
+            
+            // Count 2-man bonuses and merge them
+            let bonusCount = 0;
             calculatedData.shifts.forEach(s => {
                 if (s.bonus) {
-                    notesList.push(`${s.day} 2-Man Bonus £50`);
+                    bonusCount++;
                 }
             });
+            
+            let notesList = [];
+            if (bonusCount > 0) {
+                const bonusTotal = bonusCount * 50;
+                if (bonusCount === 1) {
+                    notesList.push("2-Man Bonus £50");
+                } else {
+                    notesList.push(`${bonusCount}x 2-Man Bonus @ £50 = £${bonusTotal}`);
+                }
+            }
+            
             const manualNotes = document.getElementById("input-manual-notes").value.trim();
             if (manualNotes) notesList.push(manualNotes);
 
