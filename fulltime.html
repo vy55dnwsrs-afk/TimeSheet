@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReadyPower Timesheet Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #d32f2f;
+            --primary-dark: #b71c1c;
+            --bg: #f4f6f8;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --border: #cccccc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-container {
+            max-width: 600px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            color: var(--primary);
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 8px;
+        }
+
+        .meta-fields {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            color: #555;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .live-stats {
+            background: #eef2f7;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            border-left: 5px solid #1976d2;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-top: 2px;
+        }
+
+        .days-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .day-row {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .day-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+        }
+
+        .day-inputs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-wrapper label {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .day-row input[type="time"],
+        .day-row input[type="text"],
+        .day-row select {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            width: 100%;
+            background-color: #fff;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 8px 0;
+        }
+
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: #607d8b;
+            max-width: 120px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <h1>⚡ ReadyPower Full-Time Timesheet</h1>
+
+        <div class="meta-fields">
+            <div class="form-group">
+                <label>Driver's Name</label>
+                <input type="text" id="input-name" value="Ashley Fensom" oninput="calculateTimesheet()">
+            </div>
+            <div class="form-group">
+                <label>Week Ending Sunday Date</label>
+                <input type="date" id="input-date" onchange="calculateTimesheet()">
+            </div>
+        </div>
+
+        <div class="live-stats">
+            <div class="stat-box">
+                <div class="stat-label">Hours Worked</div>
+                <div class="stat-val" id="stat-worked">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Stand Down</div>
+                <div class="stat-val" id="stat-standdown" style="color: #d32f2f;">40</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Total Hours</div>
+                <div class="stat-val" id="stat-total" style="color: #2e7d32;">40</div>
+            </div>
+        </div>
+
+        <div class="days-grid" id="days-input-wrapper">
+            <!-- Populated dynamically via JS -->
+        </div>
+
+        <div class="meta-fields">
+            <div class="form-group">
+                <label>Additional Custom Notes</label>
+                <textarea id="input-manual-notes" rows="3" placeholder="Type any extra notes here..." oninput="calculateTimesheet()"></textarea>
+            </div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-secondary" onclick="clearForm()">Reset</button>
+            <button class="btn" onclick="saveAsPDF()">Save PDF</button>
+        </div>
+    </div>
+
+    <!-- ENGINE -->
+    <script>
+        const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            let daysHTML = "";
+            daysOfWeek.forEach(d => {
+                daysHTML += `
+                <div class="day-row" data-day="${d}">
+                    <div class="day-header">${d}</div>
+                    <div class="day-inputs-grid">
+                        <div class="input-wrapper">
+                            <label>Start Time</label>
+                            <input type="time" class="start-time" onchange="calculateTimesheet()">
+                        </div>
+                        <div class="input-wrapper">
+                            <label>Finish Time</label>
+                            <input type="time" class="finish-time" onchange="calculateTimesheet()">
+                        </div>
+                        <div class="input-wrapper">
+                            <label>Break</label>
+                            <input type="text" class="break-input" placeholder="e.g. 30 mins" oninput="calculateTimesheet()">
+                        </div>
+                        <div class="input-wrapper">
+                            <label>Holiday / Lodge</label>
+                            <select class="holiday-select" onchange="calculateTimesheet()">
+                                <option value="">None</option>
+                                <option value="H">Holiday (H)</option>
+                                <option value="L">Lodge (L)</option>
+                            </select>
+                        </div>
+                        <div class="input-wrapper">
+                            <label>Job Number</label>
+                            <input type="text" class="job-code-input" placeholder="e.g. 1663" oninput="calculateTimesheet()">
+                        </div>
+                        <div class="input-wrapper">
+                            <label>Expenses (£)</label>
+                            <input type="text" class="expenses" placeholder="0.00" oninput="calculateTimesheet()">
+                        </div>
+                        <div class="input-wrapper" style="grid-column: span 2; justify-content: center; align-items: center;">
+                            <div class="checkbox-group">
+                                <input type="checkbox" class="two-man-checkbox" onchange="calculateTimesheet()">
+                                <label>£50 2-Man Bonus</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById("days-input-wrapper").innerHTML = daysHTML;
+
+            const dateInput = document.getElementById("input-date");
+            const today = new Date();
+            const targetSunday = new Date(today);
+            targetSunday.setDate(today.getDate() + ((7 - today.getDay()) % 7));
+            dateInput.value = targetSunday.toISOString().split('T')[0];
+
+            loadFormData();
+            calculateTimesheet();
+        });
+
+        let calculatedData = {
+            totalWorked: 0,
+            standDown: 40,
+            totalHours: 40,
+            totalExp: 0,
+            shifts: []
+        };
+
+        function parseTimeToMinutes(timeStr) {
+            if (!timeStr) return null;
+            const parts = timeStr.split(':');
+            if (parts.length < 2) return null;
+            return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+        }
+
+        function calculateTimesheet() {
+            let totalWorked = 0;
+            let totalExp = 0;
+            let shifts = [];
+
+            document.querySelectorAll(".days-grid .day-row[data-day]").forEach(row => {
+                const day = row.getAttribute("data-day");
+                const start = row.querySelector(".start-time").value;
+                const finish = row.querySelector(".finish-time").value;
+                const breakText = row.querySelector(".break-input").value.trim();
+                const hol = row.querySelector(".holiday-select").value;
+                const jcNum = row.querySelector(".job-code-input").value.trim();
+                const expVal = parseFloat(row.querySelector(".expenses").value) || 0;
+                const bonus = row.querySelector(".two-man-checkbox").checked;
+
+                let hrs = 0;
+                if (hol === "H") {
+                    hrs = 8;
+                } else if (start && finish) {
+                    const startMins = parseTimeToMinutes(start);
+                    const finishMins = parseTimeToMinutes(finish);
+                    
+                    if (startMins !== null && finishMins !== null) {
+                        let diffMins = finishMins - startMins;
+                        
+                        // Handle overnight shifts
+                        // If finish time is earlier than start time, it's an overnight shift
+                        if (diffMins <= 0) {
+                            diffMins += 1440; // Add 24 hours (1440 minutes)
+                        }
+
+                        hrs = Math.round((diffMins / 60) * 10) / 10;
+                    }
+                }
+
+                totalWorked += hrs;
+                totalExp += expVal;
+
+                shifts.push({ day, start, finish, breakText, hol, jcNum, expVal, bonus, hrs });
+            });
+
+            let sd = Math.max(0, 40 - totalWorked);
+            
+            document.getElementById("stat-worked").innerText = totalWorked.toFixed(1);
+            document.getElementById("stat-standdown").innerText = sd.toFixed(1);
+            document.getElementById("stat-total").innerText = (totalWorked + sd).toFixed(1);
+
+            calculatedData = {
+                totalWorked,
+                standDown: sd,
+                totalHours: totalWorked + sd,
+                totalExp,
+                shifts
+            };
+
+            saveFormData();
+        }
+
+        function saveAsPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const driverName = document.getElementById("input-name").value;
+            const dateVal = document.getElementById("input-date").value.split("-");
+            const formattedDate = dateVal.length === 3 ? `${dateVal[2]}/${dateVal[1]}/${dateVal[0]}` : "Not Set";
+
+            const red = [211, 47, 47];
+            const darkGrey = [68, 68, 68];
+            const lightGrey = [240, 240, 240];
+
+            // Header
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(...red);
+            doc.text("READYPOWER", 15, 18);
+
+            doc.setFont("Helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...darkGrey);
+            doc.text("Rail Services - Driver's Summary Sheet", 15, 23);
+
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.text([
+                "Readypower Rail Services LTD",
+                "Winnersh, Reading",
+                "Email: Payroll@readypower.co.uk"
+            ], 280, 13, { align: "right" });
+
+            doc.setDrawColor(...red);
+            doc.setLineWidth(1);
+            doc.line(15, 26, 280, 26);
+
+            // Meta
+            doc.setFillColor(...lightGrey);
+            doc.rect(15, 29, 265, 12, "F");
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(...darkGrey);
+            doc.text("DRIVER'S NAME: " + driverName, 18, 36);
+            doc.text("WEEK ENDING: " + formattedDate, 277, 36, { align: "right" });
+
+            // Table Headers
+            let y = 46;
+            doc.setFillColor(220, 220, 220);
+            doc.rect(15, y, 180, 7, "F");
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.2);
+
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            const headers = ["Day", "Start", "Breaks", "Finish", "Hol/Lodge", "Job No.", "Hrs Worked", "Exp (£)"];
+            const colWidths = [24, 18, 16, 18, 20, 32, 26, 26];
+            
+            let currentX = 15;
+            headers.forEach((h, i) => {
+                doc.rect(currentX, y, colWidths[i], 7);
+                doc.text(h, currentX + colWidths[i]/2, y + 5, { align: "center" });
+                currentX += colWidths[i];
+            });
+
+            let payrollX = 200;
+            doc.setFillColor(235, 235, 235);
+            doc.rect(payrollX, y, 80, 7, "F");
+            doc.text("FOR PAYROLL ONLY", payrollX + 40, y + 5, { align: "center" });
+
+            // Table Rows
+            y += 7;
+            calculatedData.shifts.forEach((s) => {
+                doc.setFont("Helvetica", "bold");
+                doc.setTextColor(0, 0, 0);
+                doc.rect(15, y, colWidths[0], 8);
+                doc.text(s.day, 17, y + 5);
+
+                doc.setFont("Helvetica", "normal");
+                let curX = 15 + colWidths[0];
+                
+                const formattedJobNum = s.jcNum ? `TS${s.jcNum}` : "-";
+                
+                const vals = [
+                    s.start || "-", 
+                    s.breakText || "-",
+                    s.finish || "-", 
+                    s.hol || "-", 
+                    formattedJobNum, 
+                    s.hrs || "-", 
+                    s.expVal ? "£" + s.expVal.toFixed(2) : "-"
+                ];
+                
+                vals.forEach((v, idx) => {
+                    doc.rect(curX, y, colWidths[idx+1], 8);
+                    doc.text(v.toString(), curX + colWidths[idx+1]/2, y + 5, { align: "center" });
+                    curX += colWidths[idx+1];
+                });
+
+                doc.rect(200, y, 20, 8); doc.rect(220, y, 20, 8); doc.rect(240, y, 20, 8); doc.rect(260, y, 20, 8);
+
+                y += 8;
+            });
+
+            // RED Stand Down row
+            doc.setFont("Helvetica", "bolditalic");
+            doc.setTextColor(...red); 
+            doc.rect(15, y, colWidths[0], 8);
+            doc.text("Stand Down", 17, y + 5);
+            
+            let blankX = 15 + colWidths[0];
+            for (let i = 1; i < 6; i++) {
+                doc.rect(blankX, y, colWidths[i], 8);
+                blankX += colWidths[i];
+            }
+            doc.rect(blankX, y, colWidths[6], 8);
+            doc.text(calculatedData.standDown.toFixed(1), blankX + colWidths[6]/2, y + 5, { align: "center" });
+            
+            blankX += colWidths[6];
+            doc.rect(blankX, y, colWidths[7], 8); 
+            
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(200, y, 20, 8); doc.rect(220, y, 20, 8); doc.rect(240, y, 20, 8); doc.rect(260, y, 20, 8);
+
+            y += 8;
+
+            // Totals Row
+            doc.setTextColor(0, 0, 0);
+            doc.setFillColor(235, 240, 245);
+            doc.rect(15, y, 180, 8, "F");
+            doc.rect(15, y, 180, 8);
+            doc.setFont("Helvetica", "bold");
+            doc.text("TOTALS:", 110, y + 5);
+            doc.text(calculatedData.totalHours.toFixed(1) + " Hrs", 145, y + 5);
+            doc.text("£" + calculatedData.totalExp.toFixed(2), 170, y + 5);
+
+            y += 15;
+
+            // Footer notes and signatures
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(15, y, 120, 25);
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(8);
+            doc.text("NOTES & ALLOWANCES:", 18, y + 5);
+            
+            doc.setFont("Helvetica", "normal");
+            
+            // Count 2-man bonuses and merge them
+            let bonusCount = 0;
+            calculatedData.shifts.forEach(s => {
+                if (s.bonus) {
+                    bonusCount++;
+                }
+            });
+            
+            let notesList = [];
+            if (bonusCount > 0) {
+                const bonusTotal = bonusCount * 50;
+                if (bonusCount === 1) {
+                    notesList.push("2-Man Bonus £50");
+                } else {
+                    notesList.push(`${bonusCount}x 2-Man Bonus @ £50 = £${bonusTotal}`);
+                }
+            }
+            
+            const manualNotes = document.getElementById("input-manual-notes").value.trim();
+            if (manualNotes) notesList.push(manualNotes);
+
+            doc.setFontSize(8.5);
+            doc.text(notesList.slice(0, 3).join(", "), 18, y + 12);
+
+            // Signatures
+            doc.rect(145, y, 135, 25);
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(8);
+            doc.text("MANAGER'S SIGNATURE:", 150, y + 6);
+            doc.line(150, y + 20, 200, y + 20);
+
+            doc.text("DRIVER'S SIGNATURE (Signed Digitally):", 210, y + 6);
+            doc.setFont("Courier", "bolditalic");
+            doc.setFontSize(12);
+            doc.setTextColor(26, 35, 126);
+            doc.text(driverName, 210, y + 16);
+
+            // Document code data lines
+            doc.setTextColor(150, 150, 150);
+            doc.setFont("Helvetica", "normal");
+            doc.setFontSize(7);
+            doc.text("FM-F-04 Drivers Time Sheet", 15, y + 33);
+            doc.text("Issue 2", 145, y + 33, { align: "center" });
+            doc.text("October 2020", 280, y + 33, { align: "right" });
+
+            doc.save(`ReadyPower_Timesheet_${driverName.replace(/\s+/g, '_')}.pdf`);
+        }
+
+        function saveFormData() {
+            const data = {
+                name: document.getElementById("input-name").value,
+                date: document.getElementById("input-date").value,
+                manualNotes: document.getElementById("input-manual-notes").value,
+                shifts: calculatedData.shifts
+            };
+            localStorage.setItem("rp_v1.8_draft", JSON.stringify(data));
+        }
+
+        function loadFormData() {
+            const raw = localStorage.getItem("rp_v1.8_draft");
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            document.getElementById("input-name").value = data.name || "Ashley Fensom";
+            if (data.date) document.getElementById("input-date").value = data.date;
+            if (data.manualNotes) document.getElementById("input-manual-notes").value = data.manualNotes;
+            
+            data.shifts.forEach(s => {
+                const row = document.querySelector(`.day-row[data-day="${s.day}"]`);
+                if (row) {
+                    row.querySelector(".start-time").value = s.start || "";
+                    row.querySelector(".finish-time").value = s.finish || "";
+                    row.querySelector(".break-input").value = s.breakText || "";
+                    row.querySelector(".holiday-select").value = s.hol || "";
+                    row.querySelector(".job-code-input").value = s.jcNum || "";
+                    row.querySelector(".expenses").value = s.expVal || "";
+                    row.querySelector(".two-man-checkbox").checked = s.bonus || false;
+                }
+            });
+        }
+
+        function clearForm() {
+            if (confirm("Clear timesheet?")) {
+                document.querySelectorAll(".start-time, .finish-time, .expenses, .job-code-input, .break-input").forEach(i => i.value = "");
+                document.getElementById("input-manual-notes").value = "";
+                document.querySelectorAll("select").forEach(s => s.value = "");
+                document.querySelectorAll("input[type='checkbox']").forEach(c => c.checked = false);
+                calculateTimesheet();
+            }
+        }
+    </script>
+</body>
+</html>
