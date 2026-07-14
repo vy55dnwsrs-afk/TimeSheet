@@ -37,13 +37,45 @@
             box-sizing: border-box;
         }
 
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
         h1 {
             font-size: 1.4rem;
             color: var(--primary);
-            margin-top: 0;
-            margin-bottom: 15px;
+            margin: 0;
             border-bottom: 2px solid var(--primary);
             padding-bottom: 8px;
+            flex: 1;
+        }
+
+        .employment-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .employment-selector label {
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .employment-selector select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background-color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary);
         }
 
         .meta-fields {
@@ -83,10 +115,17 @@
             border-radius: 8px;
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
             gap: 8px;
             border-left: 5px solid #1976d2;
             text-align: center;
+        }
+
+        .live-stats.fulltime {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .live-stats.contractor {
+            grid-template-columns: 1fr 1fr;
         }
 
         .stat-label {
@@ -202,11 +241,20 @@
 <body>
 
     <div class="app-container">
-        <h1>⚡ ReadyPower Fast-Fill</h1>
+        <div class="header-section">
+            <h1>⚡ ReadyPower Timesheet</h1>
+            <div class="employment-selector">
+                <label>Type:</label>
+                <select id="employment-type" onchange="switchEmploymentType()">
+                    <option value="fulltime">Full-Time</option>
+                    <option value="contractor">0-Hour Contractor</option>
+                </select>
+            </div>
+        </div>
 
         <div class="meta-fields">
             <div class="form-group">
-                <label>Driver's Name</label>
+                <label id="name-label">Driver's Name</label>
                 <input type="text" id="input-name" value="Ashley Fensom" oninput="calculateTimesheet()">
             </div>
             <div class="form-group">
@@ -215,18 +263,22 @@
             </div>
         </div>
 
-        <div class="live-stats">
+        <div class="live-stats fulltime" id="live-stats">
             <div class="stat-box">
                 <div class="stat-label">Hours Worked</div>
                 <div class="stat-val" id="stat-worked">0</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box" id="standdown-box">
                 <div class="stat-label">Stand Down</div>
                 <div class="stat-val" id="stat-standdown" style="color: #d32f2f;">40</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box" id="total-box">
                 <div class="stat-label">Total Hours</div>
                 <div class="stat-val" id="stat-total" style="color: #2e7d32;">40</div>
+            </div>
+            <div class="stat-box" id="expenses-box" style="display: none;">
+                <div class="stat-label">Total Expenses</div>
+                <div class="stat-val" id="stat-expenses" style="color: #2e7d32;">£0.00</div>
             </div>
         </div>
 
@@ -250,6 +302,7 @@
     <!-- ENGINE -->
     <script>
         const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        let currentEmploymentType = "fulltime";
 
         document.addEventListener("DOMContentLoaded", () => {
             let daysHTML = "";
@@ -315,6 +368,30 @@
             shifts: []
         };
 
+        function switchEmploymentType() {
+            const selector = document.getElementById("employment-type");
+            currentEmploymentType = selector.value;
+
+            if (currentEmploymentType === "fulltime") {
+                document.getElementById("name-label").textContent = "Driver's Name";
+                document.getElementById("standdown-box").style.display = "block";
+                document.getElementById("total-box").style.display = "block";
+                document.getElementById("expenses-box").style.display = "none";
+                document.getElementById("live-stats").classList.remove("contractor");
+                document.getElementById("live-stats").classList.add("fulltime");
+            } else {
+                document.getElementById("name-label").textContent = "Contractor Name";
+                document.getElementById("standdown-box").style.display = "none";
+                document.getElementById("total-box").style.display = "none";
+                document.getElementById("expenses-box").style.display = "block";
+                document.getElementById("live-stats").classList.remove("fulltime");
+                document.getElementById("live-stats").classList.add("contractor");
+            }
+
+            loadFormData();
+            calculateTimesheet();
+        }
+
         function parseTimeToMinutes(timeStr) {
             if (!timeStr) return null;
             const parts = timeStr.split(':');
@@ -348,7 +425,6 @@
                         let diffMins = finishMins - startMins;
                         
                         // Handle overnight shifts
-                        // If finish time is earlier than start time, it's an overnight shift
                         if (diffMins <= 0) {
                             diffMins += 1440; // Add 24 hours (1440 minutes)
                         }
@@ -363,19 +439,29 @@
                 shifts.push({ day, start, finish, breakText, hol, jcNum, expVal, bonus, hrs });
             });
 
-            let sd = Math.max(0, 40 - totalWorked);
-            
-            document.getElementById("stat-worked").innerText = totalWorked.toFixed(1);
-            document.getElementById("stat-standdown").innerText = sd.toFixed(1);
-            document.getElementById("stat-total").innerText = (totalWorked + sd).toFixed(1);
+            if (currentEmploymentType === "fulltime") {
+                let sd = Math.max(0, 40 - totalWorked);
+                document.getElementById("stat-worked").innerText = totalWorked.toFixed(1);
+                document.getElementById("stat-standdown").innerText = sd.toFixed(1);
+                document.getElementById("stat-total").innerText = (totalWorked + sd).toFixed(1);
 
-            calculatedData = {
-                totalWorked,
-                standDown: sd,
-                totalHours: totalWorked + sd,
-                totalExp,
-                shifts
-            };
+                calculatedData = {
+                    totalWorked,
+                    standDown: sd,
+                    totalHours: totalWorked + sd,
+                    totalExp,
+                    shifts
+                };
+            } else {
+                document.getElementById("stat-worked").innerText = totalWorked.toFixed(1);
+                document.getElementById("stat-expenses").innerText = "£" + totalExp.toFixed(2);
+
+                calculatedData = {
+                    totalWorked,
+                    totalExp,
+                    shifts
+                };
+            }
 
             saveFormData();
         }
@@ -388,7 +474,7 @@
                 format: 'a4'
             });
 
-            const driverName = document.getElementById("input-name").value;
+            const personName = document.getElementById("input-name").value;
             const dateVal = document.getElementById("input-date").value.split("-");
             const formattedDate = dateVal.length === 3 ? `${dateVal[2]}/${dateVal[1]}/${dateVal[0]}` : "Not Set";
 
@@ -405,7 +491,8 @@
             doc.setFont("Helvetica", "normal");
             doc.setFontSize(9);
             doc.setTextColor(...darkGrey);
-            doc.text("Rail Services - Driver's Summary Sheet", 15, 23);
+            const headerText = currentEmploymentType === "fulltime" ? "Rail Services - Driver's Summary Sheet" : "Rail Services - Contractor Timesheet";
+            doc.text(headerText, 15, 23);
 
             doc.setFontSize(8);
             doc.setTextColor(120, 120, 120);
@@ -425,7 +512,8 @@
             doc.setFont("Helvetica", "bold");
             doc.setFontSize(9);
             doc.setTextColor(...darkGrey);
-            doc.text("DRIVER'S NAME: " + driverName, 18, 36);
+            const nameLabel = currentEmploymentType === "fulltime" ? "DRIVER'S NAME: " : "CONTRACTOR NAME: ";
+            doc.text(nameLabel + personName, 18, 36);
             doc.text("WEEK ENDING: " + formattedDate, 277, 36, { align: "right" });
 
             // Table Headers
@@ -486,27 +574,29 @@
                 y += 8;
             });
 
-            // RED Stand Down row
-            doc.setFont("Helvetica", "bolditalic");
-            doc.setTextColor(...red); 
-            doc.rect(15, y, colWidths[0], 8);
-            doc.text("Stand Down", 17, y + 5);
-            
-            let blankX = 15 + colWidths[0];
-            for (let i = 1; i < 6; i++) {
-                doc.rect(blankX, y, colWidths[i], 8);
-                blankX += colWidths[i];
-            }
-            doc.rect(blankX, y, colWidths[6], 8);
-            doc.text(calculatedData.standDown.toFixed(1), blankX + colWidths[6]/2, y + 5, { align: "center" });
-            
-            blankX += colWidths[6];
-            doc.rect(blankX, y, colWidths[7], 8); 
-            
-            doc.setDrawColor(200, 200, 200);
-            doc.rect(200, y, 20, 8); doc.rect(220, y, 20, 8); doc.rect(240, y, 20, 8); doc.rect(260, y, 20, 8);
+            // Stand Down row (only for full-time)
+            if (currentEmploymentType === "fulltime") {
+                doc.setFont("Helvetica", "bolditalic");
+                doc.setTextColor(...red); 
+                doc.rect(15, y, colWidths[0], 8);
+                doc.text("Stand Down", 17, y + 5);
+                
+                let blankX = 15 + colWidths[0];
+                for (let i = 1; i < 6; i++) {
+                    doc.rect(blankX, y, colWidths[i], 8);
+                    blankX += colWidths[i];
+                }
+                doc.rect(blankX, y, colWidths[6], 8);
+                doc.text(calculatedData.standDown.toFixed(1), blankX + colWidths[6]/2, y + 5, { align: "center" });
+                
+                blankX += colWidths[6];
+                doc.rect(blankX, y, colWidths[7], 8); 
+                
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(200, y, 20, 8); doc.rect(220, y, 20, 8); doc.rect(240, y, 20, 8); doc.rect(260, y, 20, 8);
 
-            y += 8;
+                y += 8;
+            }
 
             // Totals Row
             doc.setTextColor(0, 0, 0);
@@ -515,7 +605,13 @@
             doc.rect(15, y, 180, 8);
             doc.setFont("Helvetica", "bold");
             doc.text("TOTALS:", 110, y + 5);
-            doc.text(calculatedData.totalHours.toFixed(1) + " Hrs", 145, y + 5);
+            
+            if (currentEmploymentType === "fulltime") {
+                doc.text(calculatedData.totalHours.toFixed(1) + " Hrs", 145, y + 5);
+            } else {
+                doc.text(calculatedData.totalWorked.toFixed(1) + " Hrs", 145, y + 5);
+            }
+            
             doc.text("£" + calculatedData.totalExp.toFixed(2), 170, y + 5);
 
             y += 15;
@@ -529,7 +625,7 @@
             
             doc.setFont("Helvetica", "normal");
             
-            // Count 2-man bonuses and merge them
+            // Count 2-man bonuses
             let bonusCount = 0;
             calculatedData.shifts.forEach(s => {
                 if (s.bonus) {
@@ -564,34 +660,40 @@
             doc.setFont("Courier", "bolditalic");
             doc.setFontSize(12);
             doc.setTextColor(26, 35, 126);
-            doc.text(driverName, 210, y + 16);
+            doc.text(personName, 210, y + 16);
 
             // Document code data lines
             doc.setTextColor(150, 150, 150);
             doc.setFont("Helvetica", "normal");
             doc.setFontSize(7);
-            doc.text("FM-F-04 Drivers Time Sheet", 15, y + 33);
+            const docCode = currentEmploymentType === "fulltime" ? "FM-F-04 Drivers Time Sheet" : "FM-F-05 Contractor Timesheet";
+            doc.text(docCode, 15, y + 33);
             doc.text("Issue 2", 145, y + 33, { align: "center" });
             doc.text("October 2020", 280, y + 33, { align: "right" });
 
-            doc.save(`ReadyPower_Timesheet_${driverName.replace(/\s+/g, '_')}.pdf`);
+            const filename = currentEmploymentType === "fulltime" ? 
+                `ReadyPower_Timesheet_${personName.replace(/\s+/g, '_')}.pdf` :
+                `ReadyPower_Contractor_${personName.replace(/\s+/g, '_')}.pdf`;
+            doc.save(filename);
         }
 
         function saveFormData() {
+            const storageKey = currentEmploymentType === "fulltime" ? "rp_v1.8_draft" : "rp_contractor_v1.0_draft";
             const data = {
                 name: document.getElementById("input-name").value,
                 date: document.getElementById("input-date").value,
                 manualNotes: document.getElementById("input-manual-notes").value,
                 shifts: calculatedData.shifts
             };
-            localStorage.setItem("rp_v1.8_draft", JSON.stringify(data));
+            localStorage.setItem(storageKey, JSON.stringify(data));
         }
 
         function loadFormData() {
-            const raw = localStorage.getItem("rp_v1.8_draft");
+            const storageKey = currentEmploymentType === "fulltime" ? "rp_v1.8_draft" : "rp_contractor_v1.0_draft";
+            const raw = localStorage.getItem(storageKey);
             if (!raw) return;
             const data = JSON.parse(raw);
-            document.getElementById("input-name").value = data.name || "Ashley Fensom";
+            document.getElementById("input-name").value = data.name || (currentEmploymentType === "fulltime" ? "Ashley Fensom" : "Contractor");
             if (data.date) document.getElementById("input-date").value = data.date;
             if (data.manualNotes) document.getElementById("input-manual-notes").value = data.manualNotes;
             
@@ -613,7 +715,7 @@
             if (confirm("Clear timesheet?")) {
                 document.querySelectorAll(".start-time, .finish-time, .expenses, .job-code-input, .break-input").forEach(i => i.value = "");
                 document.getElementById("input-manual-notes").value = "";
-                document.querySelectorAll("select").forEach(s => s.value = "");
+                document.querySelectorAll("select.holiday-select").forEach(s => s.value = "");
                 document.querySelectorAll("input[type='checkbox']").forEach(c => c.checked = false);
                 calculateTimesheet();
             }
